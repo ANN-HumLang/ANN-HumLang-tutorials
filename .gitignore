@@ -1,3 +1,5 @@
+model_cache
+visuals
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
