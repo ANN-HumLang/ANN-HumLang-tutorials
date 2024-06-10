@@ -1,0 +1,7 @@
+pandas
+hmmlearn
+tabulate
+graphviz
+altair
+vegafusion
+matplotlib
