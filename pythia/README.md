@@ -5,7 +5,7 @@ It is recommended to simply use the notebook we have prepared at [Google Colab](
 However, the notebook should also work locally---though you would have to install the dependencies yourself.
 
 ## Running the notebook locally
-After cloning this repository, you should be able to open the notebook in, for example, VS Code. For installing the dependencies, you can create a virtual env (onl linux/mac) using:
+After cloning this repository, you should be able to open the notebook in, for example, VS Code. For installing the dependencies, you can create a virtual env (on linux/mac) using:
 ```
 python -m venv .venv
 source .venv/bin/activate
