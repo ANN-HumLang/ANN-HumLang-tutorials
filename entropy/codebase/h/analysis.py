@@ -316,7 +316,7 @@ class BERTAnalyser(object):
         return datetime.now().strftime("%H_%M_%S")
             
     def plot_residual(
-        self, result_df:pd.DataFrame, filename:str ='residual', title='Residual',
+        self, result_df:pd.DataFrame, filename:str ='residual', title='Proportions',
         palette_name:str = "BuGn"
     )-> None:
         ''''
