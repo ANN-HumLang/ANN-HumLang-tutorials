@@ -17,3 +17,6 @@ To ensure you will be able to use the materials for the entropy-based probing tu
    bash setup.sh
    ```
   This should take you to a jupyterlab environment in your browser, where you will be able to access and run the notebooks.
+
+  ## Running the pythia tutorial materials
+  We recommend running the notebook on grammaticality judgment evaluation with pythia models through [Google Colab](https://colab.research.google.com/drive/1uRdl0-pYximdpSeKyL7VbGFcZKqXlWnj?usp=sharing) (please create a copy in your own Drive). If you would like to run it locally, find instructions in the README of the [pythia](https://github.com/ANN-HumLang/ANN-HumLang-tutorials/tree/main/pythia) subfolder.
