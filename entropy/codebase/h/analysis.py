@@ -96,7 +96,7 @@ class BERTAnalyser(object):
                 truncation=True, max_length=max_len,
                 
             )
-            self.model = AutoModel.from_pretrained(model_id, cache_dir=f"{self.cache_dir}/hub").to(device)
+            self.model = AutoModel.from_pretrained(model_id, cache_dir=f"{self.cache_dir}/hub", output_hidden_states=True).to(device)
             
     def get_dataset(self, repo:str="nyu-mll/glue", subtask:str="mnli"):
         '''
@@ -218,45 +218,49 @@ class BERTAnalyser(object):
         words, tokenized, tokens, labels = x
         with torch.no_grad():
             output = self.model(**tokenized)
-            enc_state = EncoderState(
-                src_memory=output.last_hidden_state,
-                tokens=tokens,
-                mask=tokenized['attention_mask'],
-                labels=labels
-            )
-            
-        return enc_state
+            enc_state_list = []
+            for i in range(self.model.config.num_hidden_layers):
+                enc_state = EncoderState(
+                    src_memory=output.hidden_states[i], #output.last_hidden_state,
+                    tokens=tokens,
+                    mask=tokenized['attention_mask'],
+                    labels=labels
+                )
+                enc_state_list.append(enc_state)
+        return enc_state_list
     
     def online_estimation(self, dataloader, max_batches=None, additional_logs={}, label_types=['token','bigram','trigram']):
-        if self.is_notebook:
-            iterator = nb_tqdm(dataloader, total=max_batches, desc=f"Encoding | {self.dataset_name}")
-        else:
-            iterator = tqdm(dataloader, total=max_batches, desc=f"Encoding | {self.dataset_name}")
+        results_list, results_df_list = [], []
+        for n_layer in range(self.model.config.num_hidden_layers):
+            if self.is_notebook:
+                iterator = nb_tqdm(dataloader, total=max_batches, desc=f"Encoding | {self.dataset_name}")
+            else:
+                iterator = tqdm(dataloader, total=max_batches, desc=f"Encoding | {self.dataset_name}")
 
-        for ib, data_batch in enumerate(iterator):
-            if (max_batches is not None) and (ib >= max_batches):
-                break
+            for ib, data_batch in enumerate(iterator):
+                if (max_batches is not None) and (ib >= max_batches):
+                    break
+                encodings = [self.forward(data_batch)[n_layer]]
+                all_representations, all_tokens, all_labels = self.get_all_token_representations(encodings)
                 
-            encodings = [self.forward(data_batch)]
+                if label_types == ['token','bigram','trigram']:
+                    label_ids = get_token_encodings(examples=all_tokens, labels=label_types)
+                elif all_labels is not None:
+                    label_ids = get_token_encodings(examples=all_tokens, labels=label_types, seq_labels=all_labels)
+                self.h.batch_count(all_representations, label_ids)
+                
+                del all_representations
+                del encodings
+                torch.cuda.empty_cache()
+                gc.collect()
             
-            all_representations, all_tokens, all_labels = self.get_all_token_representations(encodings)
-            
-            if label_types == ['token','bigram','trigram']:
-                label_ids = get_token_encodings(examples=all_tokens, labels=label_types)
-            elif all_labels is not None:
-                label_ids = get_token_encodings(examples=all_tokens, labels=label_types, seq_labels=all_labels)
-            self.h.batch_count(all_representations, label_ids)
-            
-            del all_representations
-            del encodings
-            torch.cuda.empty_cache()
-            gc.collect()
-        
-        results = self.filter_results(self.h.analyse())
-        results_df = self.build_df(results)
-        self.record(results, additional=additional_logs)
-        
-        return results, results_df
+            results = self.filter_results(self.h.analyse())
+            results_df = self.build_df(results)
+            self.record(results, additional=additional_logs)
+            print("layer "+str(n_layer))
+            results_list.append(results)
+            results_df_list.append(results_df)
+        return results_list, results_df_list
     
     def filter_results(
         self, results:dict, 
