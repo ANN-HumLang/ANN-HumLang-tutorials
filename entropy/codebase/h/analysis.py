@@ -147,6 +147,9 @@ class BERTAnalyser(object):
         if 'hcoxec' in self.data_repo:
             return [i['sentence'] for i in batch], None
         
+        else:
+            return [i['sentence'] for i in batch], [[i['label']] for i in batch]
+        
         raise NotImplementedError
         
     def get_batch(self, batch):
@@ -416,6 +419,9 @@ def get_token_encodings(
                 
             if ('language' in labels) and (seq_labels is not None):
                 general_label_ids[seq_labels[i_e][i_t]].append(i)
+                
+            if ('label' in labels) and (seq_labels is not None):
+                general_label_ids[seq_labels[i_e][i_t]].append(i)
             
                 
             if 'bigram' in labels:
@@ -442,6 +448,7 @@ def get_token_encodings(
         'trigram':trigram_ids,
         'bow':bow_ids,
         'language':general_label_ids,
+        'label':general_label_ids,
     }
     
     label_ids = {}
