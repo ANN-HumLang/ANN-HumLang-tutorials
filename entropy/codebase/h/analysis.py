@@ -196,7 +196,7 @@ class BERTAnalyser(object):
         starts = [s if tok[0] != ' ' else s+1 for (s,_), tok in zip(mapping, decoded_tokens)]
         idxs = [tok.idx for tok in doc]
         locations = [bisect.bisect_right(idxs, start) - 1 for start in starts]
-        spacy_tokens = [doc[location] for location in locations]
+        spacy_tokens = ['[CLS]'] + [doc[location] for location in locations] + ['[SEP]']
         
         small_pos_tags = [doc.pos_ for doc in spacy_tokens]
         large_pos_tags = [doc.tag_ for doc in spacy_tokens]
