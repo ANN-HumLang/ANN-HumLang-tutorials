@@ -5,10 +5,13 @@ import attr
 import gc
 import json
 import os
+import bisect
+from functools import partial
 
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+import spacy
 
 from datetime import datetime
 from itertools import combinations, tee
@@ -78,6 +81,8 @@ class BERTAnalyser(object):
         self.model_name = model_id
         self.is_notebook = is_jupyter_nb
         
+        self.spacy_tagger = spacy.load("en_core_web_sm")
+        
         if h_estimator is None:
             h_estimator = Estimator(n_bins=20, count_device='cpu', inference_device='cpu', n_heads=12)
             
@@ -122,6 +127,10 @@ class BERTAnalyser(object):
         example sentence or pair
         '''
         
+        if self.data_subtask in ['mnli-pos']:
+            texts = [' '.join([i['premise'], i['hypothesis']]) for i in batch]
+            return texts, self.tokens_pos_mapping(texts)
+        
         if self.data_subtask in ['mnli', 'ax']:
             #return [i['premise'] for i in batch]
             return [' '.join([i['premise'], i['hypothesis']]) for i in batch], None
@@ -149,7 +158,7 @@ class BERTAnalyser(object):
         
         raise NotImplementedError
         
-    def get_batch(self, batch):
+    def get_batch(self, batch, pos_labels=False):
         words, labels = self.get_example(batch)
         tokenized = self.tokenizer(words, return_tensors='pt', padding=True, truncation=True, max_length=256).to(self.device)
         tokens = [tokenized['input_ids'][i][tokenized['input_ids'][i].nonzero()].T[0].tolist() 
@@ -158,6 +167,9 @@ class BERTAnalyser(object):
         if labels is not None:
             lens = tokenized.attention_mask.sum(-1).tolist()
             labels = [x*lens[i] for i, x in enumerate(labels)]
+            
+        if pos_labels:
+            labels = [self.tokens_pos_mapping(s) for s in words]
         
         return words, tokenized, tokens, labels
     
@@ -172,9 +184,27 @@ class BERTAnalyser(object):
                 tags.append(99999999)
             else:
                 tags.append(sent['pos_tags'][i])
+                
+    def tokens_pos_mapping(self, text, use_large_pos_tags=False):
+        doc = self.spacy_tagger(text)
+        
+        token_stuff = self.tokenizer(text, add_special_tokens=False, return_offsets_mapping=True)
+        tokens = token_stuff.input_ids
+        mapping = token_stuff.offset_mapping
+        decoded_tokens = [self.tokenizer.decode(token) for token in tokens]
+
+        starts = [s if tok[0] != ' ' else s+1 for (s,_), tok in zip(mapping, decoded_tokens)]
+        idxs = [tok.idx for tok in doc]
+        locations = [bisect.bisect_right(idxs, start) - 1 for start in starts]
+        spacy_tokens = [doc[location] for location in locations]
+        
+        small_pos_tags = [doc.pos_ for doc in spacy_tokens]
+        large_pos_tags = [doc.tag_ for doc in spacy_tokens]
+        
+        return large_pos_tags if use_large_pos_tags else small_pos_tags
         
         
-    def get_dataloader(self, split="train", bs=512, repo="nyu-mll/glue", subtask="mnli"):
+    def get_dataloader(self, split="train", bs=512, repo="nyu-mll/glue", subtask="mnli", pos_labels=False):
         if self.dataset is None:
             self.get_dataset(repo, subtask)
         
@@ -183,7 +213,7 @@ class BERTAnalyser(object):
             self.dataset[split], 
             batch_size=bs, 
             shuffle=True, 
-            collate_fn=self.get_batch
+            collate_fn=partial(self.get_batch, pos_labels=pos_labels)
         )
         return split_loader
     
