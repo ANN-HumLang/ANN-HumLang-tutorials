@@ -196,12 +196,15 @@ class BERTAnalyser(object):
         starts = [s if tok[0] != ' ' else s+1 for (s,_), tok in zip(mapping, decoded_tokens)]
         idxs = [tok.idx for tok in doc]
         locations = [bisect.bisect_right(idxs, start) - 1 for start in starts]
-        spacy_tokens = ['[CLS]'] + [doc[location] for location in locations] + ['[SEP]']
+        spacy_tokens = [doc[location] for location in locations]
         
         small_pos_tags = [doc.pos_ for doc in spacy_tokens]
         large_pos_tags = [doc.tag_ for doc in spacy_tokens]
         
-        return large_pos_tags if use_large_pos_tags else small_pos_tags
+        return_tags = large_pos_tags if use_large_pos_tags else small_pos_tags
+        return_tags = ['[CLS]'] + return_tags + ['[SEP]']
+        
+        return return_tags
         
         
     def get_dataloader(self, split="train", bs=512, repo="nyu-mll/glue", subtask="mnli", pos_labels=False):
