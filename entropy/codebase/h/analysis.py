@@ -158,7 +158,7 @@ class BERTAnalyser(object):
         
         raise NotImplementedError
         
-    def get_batch(self, batch, pos_labels=False):
+    def get_batch(self, batch, pos_labels=None):
         words, labels = self.get_example(batch)
         tokenized = self.tokenizer(words, return_tensors='pt', padding=True, truncation=True, max_length=256).to(self.device)
         tokens = [tokenized['input_ids'][i][tokenized['input_ids'][i].nonzero()].T[0].tolist() 
@@ -169,7 +169,7 @@ class BERTAnalyser(object):
             labels = [x*lens[i] for i, x in enumerate(labels)]
             
         if pos_labels:
-            labels = [self.tokens_pos_mapping(s) for s in words]
+            labels = [self.tokens_pos_mapping(s, use_large_pos_tags=(pos_labels=='large')) for s in words]
         
         return words, tokenized, tokens, labels
     
